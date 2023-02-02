@@ -8,23 +8,7 @@ the tunnel. A list of port forwards is provided to the connect_api function and 
 Example code for electron_js:
 ```js
 
-// options for connect_ssh_sync, invoked in electron render process
-var opts = {
-  "username": "<username>",
-  "password": "",
-  "host": "",
-  "port": "",
-  "proxy_ports": [
-    "8280:127.0.0.1:80",
-    "9000:127.0.0.1:9000",
-    "8122:192.168.2.1:22"
-  ],
-  "service_name": "zmNinja",
-  "server_name": "server",
-  "ngrok_api": "<ngrok_api_key>"
-};
-
-// electron main function
+// electronjs main.js
 async function init_sshTunnelProxy(win) {
 
   const SSHTunnelProxy = require('ssh_tunnel_proxy');
@@ -56,4 +40,46 @@ async function init_sshTunnelProxy(win) {
   sshTunnelProxy.on('error',(...args) => win.webContents.send('error',...args));
 
 };
+
+// electronjs preload.js
+const { contextBridge, ipcRenderer } = require('electron')
+
+contextBridge.exposeInMainWorld('sshModule', {
+    connect_ssh_sync: opts => ipcRenderer.sendSync('connect_ssh_sync', opts),
+    generate_keypair: (...args) => ipcRenderer.sendSync("generate_keypair", ...args),
+    get_public_key: (...args) => ipcRenderer.sendSync("get_public_key", ...args),
+    network_online: (...args) => ipcRenderer.send("network_online", ...args),
+    network_offline: (...args) => ipcRenderer.send("network_offline", ...args),
+    ready: (callback) => ipcRenderer.on('ready', callback),
+    debug: (callback) => ipcRenderer.on('debug', callback),
+    error: (callback) => ipcRenderer.on('error', callback)
+});
+
+// electronjs render process, setup listeners and initiate ssh tunnel
+// initialize ssh message handlers
+sshModule.ready((event, data) => {
+});
+sshModule.debug((event,msg)=>{
+})
+sshModule.error((event,err)=>{
+});
+
+// options for connect_ssh_sync
+var sshParams = {
+  "username": "<username>",
+  "password": "",
+  "host": "",
+  "port": "",
+  "proxy_ports": [
+    "8280:127.0.0.1:80",
+    "9000:127.0.0.1:9000",
+    "8122:192.168.2.1:22"
+  ],
+  "service_name": "service",
+  "server_name": "server",
+  "ngrok_api": "<ngrok_api_key>"
+};
+
+// initate ssh tunnel
+sshModule.connect_ssh_sync(sshParams);
 ```
