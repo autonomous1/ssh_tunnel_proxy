@@ -99,7 +99,7 @@ function main(args) {
                 ngrokAPIKey = value;
                 break;
             default:
-                console.log('Invalid argument:', arg);
+                if (i > 1) console.log('Invalid argument:', arg);
         }
     }
 
