@@ -7,6 +7,24 @@ the tunnel. A list of port forwards is provided to the connect_api function and 
 
 Example code for electron_js:
 ```js
+
+// options for connect_ssh_sync, invoked in electron render process
+var opts = {
+  "username": "<username>",
+  "password": "",
+  "host": "",
+  "port": "",
+  "proxy_ports": [
+    "8280:127.0.0.1:80",
+    "9000:127.0.0.1:9000",
+    "8122:192.168.2.1:22"
+  ],
+  "service_name": "zmNinja",
+  "server_name": "server",
+  "ngrok_api": "<ngrok_api_key>"
+};
+
+// electron main function
 async function init_sshTunnelProxy(win) {
 
   const SSHTunnelProxy = require('ssh_tunnel_proxy');
