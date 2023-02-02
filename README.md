@@ -1,14 +1,44 @@
 # ssh_tunnel_proxy
 Initiate a ssh reverse tunnel proxy with forwarding ports
 
-ssh_tunnel_proxy can function as a stand-alone api or part of an electron_js app. To establish a ssh tunnel proxy a keypair is generated on the client and stored in the system keychain.
-If a ngrok api key is provided the ngrok api endpoint method is invoked to obtain the hostport of
-the tunnel. A list of port forwards is provided to the connect_api function and ports validated to restrict connections to system ports on the remote host to a set of pre-defined ports such as http,https. After establishing a ssh connection to the remote server, local proxy port forwards are opened. If the connection is interrupted then the ssh_connect method will attempt to re-establish the connection.
+ssh_tunnel_proxy can function as a stand-alone api, nodejs command line script or part of an electron_js app. To establish a ssh tunnel proxy a keypair is generated on the client and stored in the system keychain.
 
-Example code for electron_js:
+If a ngrok api key is provided the ngrok api endpoint method is invoked to obtain the hostport of the tunnel. A list of port forwards is provided to the connect_api function and ports validated to restrict connections to system ports on the remote host to a set of pre-defined ports such as http,https. After establishing a ssh connection to the remote server, local proxy port forwards are opened. If the connection is interrupted then the ssh_connect method will attempt to re-establish the connection.
+
+Example command line usage:
+
+config file, located at:
+~/.config/ssh_tunnel_proxy/config.json
+```json
+[{
+  "enabled": true,
+  "username": "<username>",
+  "password": "",
+  "host": "",
+  "port": "",
+  "proxy_ports": [
+    "8280:127.0.0.1:80",
+    "9000:127.0.0.1:9000",
+    "8122:192.168.2.1:22"
+  ],
+  "whitelist": {
+    "80": true,
+    "443": true,
+    "22": true
+  },
+  "service_name": "ssh_proxy_client",
+  "server_name": "test",
+  "ngrok_api": "<ngrok api key>"
+}]
+
+start tunnel with default config, located at ~/.config/ssh_tunnel_proxy/config.json
+```
+node main.js -c -d
+
+The following code is an example of use of the api with electronjs and needs to be install in main.js, preload.js and the render process.
+main.js:
 ```js
 
-// electronjs main.js
 async function init_sshTunnelProxy(win) {
 
   const SSHTunnelProxy = require('ssh_tunnel_proxy');
@@ -40,8 +70,10 @@ async function init_sshTunnelProxy(win) {
   sshTunnelProxy.on('error',(...args) => win.webContents.send('error',...args));
 
 };
+```
 
-// electronjs preload.js
+preload.js:
+```js
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('sshModule', {
@@ -54,8 +86,10 @@ contextBridge.exposeInMainWorld('sshModule', {
     debug: (callback) => ipcRenderer.on('debug', callback),
     error: (callback) => ipcRenderer.on('error', callback)
 });
+```
 
-// electronjs render process, setup listeners and initiate ssh tunnel
+// render process
+```js
 // initialize ssh message handlers
 sshModule.ready((event, data) => {
 });
