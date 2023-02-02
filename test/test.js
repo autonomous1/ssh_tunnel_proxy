@@ -10,13 +10,12 @@ const fs = require('fs');
 const path = require('path');
 const sinon = require('sinon');
 
-const SSHTunnelProxy = require('../lib/index.js');
-const KeypairStorage = require('../lib/keypair_storage.js');
-const NgrokApi = require('../lib/ngrok_service');
+const { SSHTunnelProxy, KeypairStorage, NgrokApi } = require('../lib/index.js');
 
 // get config file containing api keys
 const homedir = require('os').homedir();
-const opts = JSON.parse(fs.readFileSync(homedir + '/.config/ssh_tunnel_proxy/config.json'), 'utf8');
+const config = JSON.parse(fs.readFileSync(homedir + '/.config/ssh_tunnel_proxy/config.json'), 'utf8');
+const opts = config[0];
 
 const sshTunnelProxy = new SSHTunnelProxy();
 const keypairStorage = new KeypairStorage();
