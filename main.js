@@ -1,7 +1,6 @@
 const process = require('process');
 const fs = require('fs');
 const { SSHTunnelProxy, KeypairStorage } = require('./lib/index.js');
-const { config } = require('process');
 
 const keypairStorage = new KeypairStorage();
 const homedir = require('os').homedir();
@@ -11,6 +10,7 @@ var configs = null;
 var host = null;
 var port = null;
 var username = null;
+var password = null;
 var forwardOut = [];
 var forwardIn = [];
 var ngrokAPIKey = null;
@@ -108,7 +108,7 @@ function main(args) {
 
     // if no config file specified, build config from args
     if (!configs) {
-        config = {
+        var config = {
             enabled: true,
             username: username,
             password: password,

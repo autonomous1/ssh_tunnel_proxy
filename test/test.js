@@ -6,9 +6,8 @@ to run ssh tunnel api tests edit config.json and provide api keys for each servi
 */
 
 const assert = require('assert');
+const { describe, it } = require('mocha');
 const fs = require('fs');
-const path = require('path');
-const sinon = require('sinon');
 
 const { SSHTunnelProxy, KeypairStorage, NgrokApi } = require('../lib/index.js');
 
@@ -136,8 +135,8 @@ describe('Store and retrieve private key in system keychain', function () {
     });
   });
   it('remove key should return true', () => {
-    return keypairStorage.delete_keypair(service_name, account).then(result => {
-      assert('should return true');
+    return keypairStorage.delete_keypair(service_name, account).then((result) => {
+      assert(result, 'should return true');
     });
   });
   it('retrieve stored private key after delete should return null', () => {
@@ -174,7 +173,7 @@ describe('Get ngrok hostport', function () {
     assert.equal(result_opts.port, '17632');
   });
   it('host, port should be obtained from api', async () => {
-    result = await ngrokApi.get_hostport(opts);
+    const result = await ngrokApi.get_hostport(opts);
     assert(result.host, 'host should exist');
     assert(result.port, 'port should exist');
   }, (err) => {
@@ -213,17 +212,3 @@ describe('ssh connection integration test', function () {
 
 });
 */
-
-
-// test generate keypair
-var test_generate_keypair = function () {
-  const keypair = generate_keypair();
-  console.log('keypair:');
-  console.log(keypair.public_key);
-  console.log(keypair.private_key);
-  var homedir = homedir();
-  var fname = path.join(homedir, '.ssh', 'zm_id_rsa.pub')
-  //fs.writeFileSync(fname, keypair.public_key);
-  fname = path.join(homedir, '.ssh', 'zm_id_rsa')
-  //fs.writeFileSync(fname, keypair.private_key);
-}
