@@ -22,13 +22,13 @@
             "type": "node",
             "runtimeVersion": "19.4.0",
             "request": "launch",
-            "name": "Launch Program",
+            "name": "Launch node cli",
             "cwd": "${fileDirname}",
             "skipFiles": [
                 "<node_internals>/**"
             ],
             "program": "${file}",
-            "args":["--source=themagician_composite"]
+            "args":["-c","-d"]
         }
     ]
 }
