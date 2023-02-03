@@ -17,6 +17,7 @@ var ngrokAPIKey = null;
 var privateKey = null;
 var service = null;
 var account = null;
+var shell = null;
 
 function get_key_from_file(filename) {
     try {
@@ -83,6 +84,10 @@ function main(args) {
             case '--service':
                 service = value;
                 break;
+            case '-S':
+            case '--shell':
+                shell = true;
+                break;
             case '--a':
                 account = value;
                 break;
@@ -138,6 +143,9 @@ function main(args) {
         // if private key filename specified, read private key
         else if (config.private_key) {
             config.private_key = get_key_from_file(config.private_key);
+        }
+        if (shell) {
+            config.shell=true;
         }
 
         // create new tunnel and start connection

@@ -28,7 +28,7 @@
                 "<node_internals>/**"
             ],
             "program": "${file}",
-            "args":["-c","-d"]
+            "args":["-c","-S"]
         }
     ]
 }
