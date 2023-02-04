@@ -6,6 +6,7 @@ const keypairStorage = new KeypairStorage();
 const homedir = require('os').homedir();
 var debug = false;
 var exec = [];
+var remote_host = null;
 var proxies = [];
 var configs = null;
 var host = null;
@@ -92,6 +93,10 @@ function main(args) {
             case '--ngrok':
                 ngrokAPIKey = value;
                 break;
+            case '-r':
+            case '--remote':
+                remote_host = value;
+                break;
             case '-R':
             case '--RemoteForward':
                 forwardIn.push(value);
@@ -139,6 +144,9 @@ function main(args) {
 
         // skip tunnel if not enabled
         if (!config.enabled) return;
+
+        // if remote host specified, only select tunnel for remote host
+        if (remote_host && remote_host !== config.alias) return;
 
         // if system key storage name specified get key from system keychain
         if (config.server_name) {
