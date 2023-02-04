@@ -3,9 +3,13 @@ Initiate a ssh reverse tunnel proxy with forwarding ports
 
 ssh_tunnel_proxy can function as a stand-alone api, nodejs command line script or as part of an electron_js app. To setup a ssh tunnel, parameters are suppled for host, port, authentication and a list of proxy ports. If a ngrok api key is provided the host and port of the ngrok tunnel are obtained. A list of port forwards is provided and is validated to restrict connections to system ports on the remote host to a list of pre-defined ports such as http or https. After establishing a ssh connection on the remote server, local proxy port forwards are opened. If the connection is interrupted or connection errors occur, attempts are made re-establish the tunnel.
 
-Example command line usage:
+Example command line to establish a list of local forwards:
 
-config file, located at:
+```
+node main.js -c
+```
+
+default config file, located at:
 ~/.config/ssh_tunnel_proxy/config.json
 ```json
 [{
@@ -28,12 +32,30 @@ config file, located at:
   "server_name": "test",
   "ngrok_api": "<ngrok api key>"
 }]
-
 ```
-start tunnel with default config, located at ~/.config/ssh_tunnel_proxy/config.json
 
+Command line to execute a series of commands on remote host:
 ```
-node main.js -c -d
+node main.js -c -e='uptime' -e='ls -all'
+```
+
+Or execute commands defined in default config:
+```
+node main.js -c
+```
+```json
+[{
+  "enabled": true,
+  "username": "<username>",
+  "service_name": "ssh_proxy_client",
+  "server_name": "test",
+  "exec" : [
+    "uptime",
+    "ls -all"
+  ],
+  "ngrok_api": "<ngrok api key>"
+}]
+
 ```
 
 The following code is an example of use of the api with electronjs and is to be installed in main.js, preload.js and the render process.

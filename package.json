@@ -1,6 +1,6 @@
 {
   "name": "ssh_tunnel_proxy",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "obtain ngrok host port from api and establish a ssh connection",
   "main": "lib/index.js",
   "scripts": {
