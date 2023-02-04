@@ -58,13 +58,14 @@ node main.js -c
 
 ```
 
-The following code is an example of use of the api with electronjs and is to be installed in main.js, preload.js and the render process.
+The following code is an example of use of the api with electronjs.
+
 main.js:
 ```js
 
 async function init_sshTunnelProxy(win) {
 
-  const SSHTunnelProxy = require('ssh_tunnel_proxy');
+  const { SSHTunnelProxy } = require('ssh_tunnel_proxy');
   const sshTunnelProxy = new SSHTunnelProxy();
   
   ipcMain.on('connect_ssh_sync', async function(event,opts) {
