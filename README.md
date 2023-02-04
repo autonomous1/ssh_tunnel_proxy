@@ -62,6 +62,32 @@ Start a terminal session on the remote host:
 node main.js -c -S
 ```
 
+Example use of api to exec remote commands using async await and processing result through streams. Complete example is in test/test_remote_exec_streams.js:
+
+```
+async function test_exec_stream(opts) {
+    sshTunnelProxy.debug_en = true;
+    await sshTunnelProxy.connectSSH(opts);
+
+    // exec remote command and save result to string
+    const uptime_result = await sshTunnelProxy.execCmd('uptime');
+    console.log('uptime:' + uptime_result.toString());
+
+    // exec remote command and pipe data through tunnel until end of data
+    const tunnel = new PassThrough();
+    tunnel.pipe(split())
+        .pipe(to_ls_JSON)
+        .pipe(to_JSON_string)
+        .pipe(process.stdout);
+
+    await sshTunnelProxy.execCmd('ls -all', tunnel);
+
+    // stream processing complete
+    console.log('done');
+    process.exit();
+}
+```
+
 The following code is an example of use of the api with electronjs.
 
 main.js:
