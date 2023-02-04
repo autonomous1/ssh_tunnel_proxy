@@ -64,7 +64,7 @@ node main.js -c -S
 
 Example use of api to exec remote commands using async await and processing result through streams. Complete example is in test/test_remote_exec_streams.js:
 
-```
+```js
 async function test_exec_stream(opts) {
     sshTunnelProxy.debug_en = true;
     await sshTunnelProxy.connectSSH(opts);
