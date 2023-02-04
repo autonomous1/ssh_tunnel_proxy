@@ -5,6 +5,7 @@ const { SSHTunnelProxy, KeypairStorage } = require('./lib/index.js');
 const keypairStorage = new KeypairStorage();
 const homedir = require('os').homedir();
 var debug = false;
+var exec = [];
 var proxies = [];
 var configs = null;
 var host = null;
@@ -51,14 +52,21 @@ function main(args) {
         const cmd = arg[0];
         const value = arg[1];
         switch (cmd) {
-            case '-d':
-            case '--debug':
-                debug = true;
+            case '--a':
+                account = value;
                 break;
             case '-c':
             case '--config':
                 if (value) get_config(value);
                 else get_default_config();
+                break;
+            case '-d':
+            case '--debug':
+                debug = true;
+                break;
+            case '-e':
+            case '--exec':
+                exec.push(value);
                 break;
             case '-h':
             case '--host':
@@ -68,10 +76,6 @@ function main(args) {
             case '--port':
                 port = value;
                 break;
-            case '-u':
-            case '--username':
-                username = value;
-                break;
             case '-P':
             case '--password':
                 password = value;
@@ -79,6 +83,18 @@ function main(args) {
             case '-k':
             case '--key':
                 privateKey = value;
+                break;
+            case '-L':
+            case '--LocalForward':
+                forwardOut.push(value);
+                break;
+            case '-n':
+            case '--ngrok':
+                ngrokAPIKey = value;
+                break;
+            case '-R':
+            case '--RemoteForward':
+                forwardIn.push(value);
                 break;
             case '-s':
             case '--service':
@@ -88,20 +104,9 @@ function main(args) {
             case '--shell':
                 shell = true;
                 break;
-            case '--a':
-                account = value;
-                break;
-            case '-L':
-            case '--LocalForward':
-                forwardOut.push(value);
-                break;
-            case '-R':
-            case '--RemoteForward':
-                forwardIn.push(value);
-                break;
-            case '-n':
-            case '--ngrok':
-                ngrokAPIKey = value;
+            case '-u':
+            case '--username':
+                username = value;
                 break;
             default:
                 if (i > 1) console.log('Invalid argument:', arg);
@@ -145,9 +150,11 @@ function main(args) {
             config.private_key = get_key_from_file(config.private_key);
         }
         if (shell) {
-            config.shell=true;
+            config.shell = true;
         }
-
+        if (exec.length > 0) {
+            config.exec = exec;
+        }
         // create new tunnel and start connection
         var sshTunnelProxy = new SSHTunnelProxy();
         proxies.push(sshTunnelProxy);

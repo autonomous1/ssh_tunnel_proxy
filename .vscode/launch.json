@@ -28,7 +28,7 @@
                 "<node_internals>/**"
             ],
             "program": "${file}",
-            "args":["-c","-S"]
+            "args":["-c","-e=uptime","-e=ls -all"]
         }
     ]
 }
