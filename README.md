@@ -55,7 +55,11 @@ node main.js -c
   ],
   "ngrok_api": "<ngrok api key>"
 }]
+```
 
+Start a terminal session on the remote host:
+```
+node main.js -c -S
 ```
 
 The following code is an example of use of the api with electronjs.
