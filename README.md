@@ -65,27 +65,48 @@ node main.js -c -S
 Example use of api to exec remote commands using async await and processing result through streams. Complete example is in test/test_remote_exec_streams.js:
 
 ```js
-async function test_exec_stream(opts) {
-    sshTunnelProxy.debug_en = true;
+// lsLongShellProc conversion test
+async function lsTest(sshTunnelProxy) {
+    return new Promise(async (resolve) => {
+
+        // setup ls -all to json object stream pipeline
+        const tunnel = new PassThrough();
+        const toJSONString = new through(function (data) {
+            this.queue(JSON.stringify(data) + '\n');
+        });
+        pipeline(tunnel,
+            split(),
+            to_lsParse(),
+            to_JSONString(),
+            process.stdout,
+            () => { }
+        );
+
+        // exec remote command and pipe data through tunnel until end of data
+        const lscmd = 'ls -all';
+        console.log('\ninvoking ' + lscmd + ' on remote host:\n');
+        await sshTunnelProxy.execCmd(lscmd, tunnel);
+
+        // stream processing complete
+        console.log(lscmd+' completed');
+        resolve();
+    })
+};
+
+async function runTests() {
+  
+    const sshTunnelProxy = new SSHTunnelProxy();
+
+    // connect to remote host
     await sshTunnelProxy.connectSSH(opts);
 
-    // exec remote command and save result to string
-    const uptime_result = await sshTunnelProxy.execCmd('uptime');
-    console.log('uptime:' + uptime_result.toString());
+    // invoke ls -all on remote host and parse result to json object string
+    await lsTest(sshTunnelProxy);
 
-    // exec remote command and pipe data through tunnel until end of data
-    const tunnel = new PassThrough();
-    tunnel.pipe(split())
-        .pipe(to_ls_JSON)
-        .pipe(to_JSON_string)
-        .pipe(process.stdout);
-
-    await sshTunnelProxy.execCmd('ls -all', tunnel);
-
-    // stream processing complete
-    console.log('done');
     process.exit();
 }
+
+runTests();
 ```
 
 The following code is an example of use of the api with electronjs.
