@@ -62,18 +62,15 @@ Start a terminal session on the remote host:
 node main.js -c -S
 ```
 
-Example use of api to exec remote commands using async await and processing result through streams. Complete example is in test/test_remote_exec_streams.js:
+Example use of api to exec remote commands using async await and processing result through streams. Complete example is in test/test_remote_exec.js:
 
 ```js
-// lsLongShellProc conversion test
+// lsLongShellProc to json stream test
 async function lsTest(sshTunnelProxy) {
     return new Promise(async (resolve) => {
 
-        // setup ls -all to json object stream pipeline
+        // exec remote command and pipe data through tunnel until end of data
         const tunnel = new PassThrough();
-        const toJSONString = new through(function (data) {
-            this.queue(JSON.stringify(data) + '\n');
-        });
         pipeline(tunnel,
             split(),
             to_lsParse(),
@@ -82,19 +79,18 @@ async function lsTest(sshTunnelProxy) {
             () => { }
         );
 
-        // exec remote command and pipe data through tunnel until end of data
         const lscmd = 'ls -all';
         console.log('\ninvoking ' + lscmd + ' on remote host:\n');
         await sshTunnelProxy.execCmd(lscmd, tunnel);
 
         // stream processing complete
-        console.log(lscmd+' completed');
+        console.log('ls -all completed');
         resolve();
     })
-};
+}
 
 async function runTests() {
-  
+
     const sshTunnelProxy = new SSHTunnelProxy();
 
     // connect to remote host
