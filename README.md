@@ -5,13 +5,15 @@ ssh_tunnel_proxy is a wrapper to ssh2 that provides async functionality as well 
 
 In addition to the node api, a command line function called ssh-node2 is included to start ssh sessions in a manner similar to the ssh command line utility.
 
-### Example command line to connect to remote host and establish local forwards:
+### Command line examples
+
+Connect to remote host and establish local forwards:
 
 ```
 ./ssh2-node -u=<username> -h=192.168.1.1 -k=~/.ssh/<private_key> -L=8180:192.168.1.1:80
 ```
 
-Or use parameters stored in ~/.config/ssh_tunnel_proxy/config.json:
+Connect to host using parameters stored in ~/.config/ssh_tunnel_proxy/config.json:
 
 ```
 ./ssh2-node rh2
@@ -33,13 +35,14 @@ default config file, located at:
 }]
 ```
 
-### Command line to execute a series of commands on remote host:
+Execute a series of commands on remote host
 ```
 ./ssh-node2 -e='uptime' -e='ls -all'
 ```
 
-### Example use of api to exec remote commands
- Uses async await and processing result through streams. Complete example is in test/test_remote_exec.js:
+### Api examples
+
+Exec remote commands using async await and processing result through streams.
 
 ```js
 // send result of cmd through pipeline, generating a stream of json objects
@@ -97,7 +100,7 @@ async function runCmd() {
 runCmd();
 ```
 
-### The following code is an example of use of the api with electronjs.
+Example of use of the api with electronjs.
 
 main.js:
 ```js
