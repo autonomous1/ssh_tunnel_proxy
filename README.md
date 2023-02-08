@@ -1,111 +1,103 @@
 # ssh_tunnel_proxy
 Initiate a ssh reverse tunnel proxy with forwarding ports
 
-ssh_tunnel_proxy can function as a stand-alone api, nodejs command line script or as part of an electron_js app. To setup a ssh tunnel, parameters are suppled for host, port, authentication and a list of proxy ports. If a ngrok api key is provided the host and port of the ngrok tunnel are obtained. A list of port forwards is provided and is validated to restrict connections to system ports on the remote host to a list of pre-defined ports such as http or https. After establishing a ssh connection on the remote server, local proxy port forwards are opened. If the connection is interrupted or connection errors occur, attempts are made re-establish the tunnel.
+ssh_tunnel_proxy is a wrapper to ssh2 that provides async functionality as well as an extension to the api to include methods to setup a list of proxy forwards, exec a list of commands or startup a terminal shell. To setup a ssh tunnel, parameters are suppled for host, port, authentication and a list of proxy ports or commands to invoke. If a ngrok api key is provided the host and port of the ngrok tunnel are obtained. If the connection is interrupted or connection errors occur, attempts are made re-establish the tunnel.
 
-Example command line to establish a list of local forwards:
+In addition to the node api, a command line function called ssh-node2 is included to start ssh sessions in a manner similar to the ssh command line utility.
+
+# # # Example command line to connect to remote host and establish local forwards:
 
 ```
-node main.js -c
+./ssh2-node -u=<username> -h=192.168.1.1 -k=~/.ssh/<private_key> -L=8180:192.168.1.1:80
+```
+
+Or use parameters stored in ~/.config/ssh_tunnel_proxy/config.json:
+
+```
+./ssh2-node rh2
 ```
 
 default config file, located at:
 ~/.config/ssh_tunnel_proxy/config.json
 ```json
 [{
-  "enabled": true,
+  "hostname":"rh2",
   "username": "<username>",
-  "password": "",
-  "host": "",
-  "port": "",
   "proxy_ports": [
     "8280:127.0.0.1:80",
     "9000:127.0.0.1:9000",
     "8122:192.168.2.1:22"
   ],
-  "whitelist": {
-    "80": true,
-    "443": true,
-    "22": true
-  },
-  "service_name": "ssh_proxy_client",
-  "server_name": "test",
+  "private_key_filename":"~/.ssh/<private key>",
   "ngrok_api": "<ngrok api key>"
 }]
 ```
 
-Command line to execute a series of commands on remote host:
+# # # Command line to execute a series of commands on remote host:
 ```
-node main.js -c -e='uptime' -e='ls -all'
-```
-
-Or execute commands defined in default config:
-```
-node main.js -c
-```
-```json
-[{
-  "enabled": true,
-  "username": "<username>",
-  "service_name": "ssh_proxy_client",
-  "server_name": "test",
-  "exec" : [
-    "uptime",
-    "ls -all"
-  ],
-  "ngrok_api": "<ngrok api key>"
-}]
+./ssh-node2 -e='uptime' -e='ls -all'
 ```
 
-Start a terminal session on the remote host:
-```
-node main.js -c -S
-```
-
-Example use of api to exec remote commands using async await and processing result through streams. Complete example is in test/test_remote_exec.js:
+# # # Example use of api to exec remote commands
+ Uses async await and processing result through streams. Complete example is in test/test_remote_exec.js:
 
 ```js
-// lsLongShellProc to json stream test
-async function lsTest(sshTunnelProxy) {
-    return new Promise(async (resolve) => {
+// send result of cmd through pipeline, generating a stream of json objects
+function lsTest(cmdProxy, cmd) {
 
-        // exec remote command and pipe data through tunnel until end of data
-        const tunnel = new PassThrough();
-        pipeline(tunnel,
-            split(),
-            to_lsParse(),
-            to_JSONString(),
-            process.stdout,
-            () => { }
-        );
+    return new Promise( (resolveCmd) => {
 
-        const lscmd = 'ls -all';
-        console.log('\ninvoking ' + lscmd + ' on remote host:\n');
-        await sshTunnelProxy.execCmd(lscmd, tunnel);
+             // set input of pipeline to split data into lines (npm i split)
+            const tunnel = split();
 
-        // stream processing complete
-        console.log('ls -all completed');
-        resolve();
+            // when pipeline is ready exec shell cmd
+            const pipelineReady = (socket) => {
+
+                return new Promise((resolve) => {
+
+                  // invoke command on remote host and send results to pipeline
+                  cmdProxy.execCmd(cmd, tunnel)
+
+                        // stream processing complete, cleanup pipeline and exit
+                        .then(() => {
+                            //self.cleanupPipeline(socket);
+                            resolveCmd();
+                        });
+                    resolve();
+                })
+            }
+
+            // pipe shell cmd result through json parser pipeline to destination
+            pipeline(tunnel,
+                self.parse(),
+                destination,
+                pipelineReady
+            );
     })
 }
 
-async function runTests() {
+async function runCmd() {
 
-    const sshTunnelProxy = new SSHTunnelProxy();
+  const opts = {
+    "hostname":"rh2",
+    "username": "<username>",
+    "private_key_filename":"~/.ssh/<private key>",
+    "ngrok_api": "<ngrok api key>"
+  }
 
-    // connect to remote host
-    await sshTunnelProxy.connectSSH(opts);
+  const sshTunnelProxy = new SSHTunnelProxy();
 
-    // invoke ls -all on remote host and parse result to json object string
-    await lsTest(sshTunnelProxy);
+  // connect to remote host
+  await sshTunnelProxy.connectSSH(opts);
 
-    process.exit();
+  // invoke ls -all on remote host and parse result to json object string
+  await lsTest(sshTunnelProxy, 'ls -all');
 }
 
-runTests();
+runCmd();
 ```
 
-The following code is an example of use of the api with electronjs.
+# # # The following code is an example of use of the api with electronjs.
 
 main.js:
 ```js
