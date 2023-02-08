@@ -37,7 +37,7 @@ default config file, located at:
 
 Execute a series of commands on remote host
 ```
-./ssh-node2 -e='uptime' -e='ls -all'
+./ssh-node2 rh2 -e='uptime' -e='ls -all'
 ```
 
 ### Api examples
@@ -46,7 +46,7 @@ Exec remote commands using async await and processing result through streams.
 
 ```js
 // send result of cmd through pipeline, generating a stream of json objects
-function lsTest(cmdProxy, cmd) {
+function lsTest(cmdProxy, cmd, destination) {
 
     return new Promise( (resolveCmd) => {
 
@@ -73,6 +73,7 @@ function lsTest(cmdProxy, cmd) {
             // pipe shell cmd result through json parser pipeline to destination
             pipeline(tunnel,
                 self.parse(),
+                self.toJSONString(),
                 destination,
                 pipelineReady
             );
@@ -94,7 +95,7 @@ async function runCmd() {
   await sshTunnelProxy.connectSSH(opts);
 
   // invoke ls -all on remote host and parse result to json object string
-  await lsTest(sshTunnelProxy, 'ls -all');
+  await lsTest(sshTunnelProxy, 'ls -all', process.stdout);
 }
 
 runCmd();
