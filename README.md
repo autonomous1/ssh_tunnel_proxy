@@ -37,7 +37,7 @@ default config file, located at:
 
 Execute a series of commands on remote host
 ```
-./ssh2-node rh2 -e='uptime' -e='ls -all'
+./ssh2-node rh2 -e='uptime' -e='ls -all' -d
 ```
 
 ### Api examples
