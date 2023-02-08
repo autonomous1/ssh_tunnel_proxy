@@ -1,0 +1,181 @@
+#!/usr/bin/node
+const process = require('process');
+const fs = require('fs');
+const { SSHTunnelProxy, KeypairStorage } = require('./lib/index.js');
+
+const keypairStorage = new KeypairStorage();
+const homedir = require('os').homedir();
+var debug = false;
+var exec = [];
+var remote_host = null;
+var proxies = [];
+var configs = null;
+var host = null;
+var port = null;
+var username = null;
+var password = null;
+var forwardOut = [];
+var forwardIn = [];
+var ngrokAPIKey = null;
+var privateKey = null;
+var service = null;
+var account = null;
+var shell = null;
+
+function get_config(filename) {
+    try {
+        configs = JSON.parse(fs.readFileSync(filename), 'utf8');
+    } catch (err) {
+        console.log('Error loading config file:', err);
+    }
+}
+
+function get_default_config() {
+    try {
+        configs = JSON.parse(fs.readFileSync(homedir + '/.config/ssh_tunnel_proxy/config.json'), 'utf8');
+    } catch (err) {
+        //console.log('Error loading config file:', err);
+    }
+}
+
+function main(args) {
+
+    // parse command line args
+    for (let i = 0; i < args.length; i++) {
+        const arg = args[i].split('=');
+        const cmd = arg[0];
+        const value = arg[1];
+        switch (cmd) {
+            case '--a':
+                account = value;
+                break;
+            case '-c':
+            case '--config':
+                if (value) get_config(value);
+                else get_default_config();
+                break;
+            case '-d':
+            case '--debug':
+                debug = true;
+                break;
+            case '-e':
+            case '--exec':
+                exec.push(value);
+                break;
+            case '-h':
+            case '--host':
+                host = value;
+                break;
+            case '-p':
+            case '--port':
+                port = value;
+                break;
+            case '-P':
+            case '--password':
+                password = value;
+                break;
+            case '-k':
+            case '--key':
+                privateKey = value;
+                break;
+            case '-L':
+            case '--LocalForward':
+                forwardOut.push(value);
+                break;
+            case '-n':
+            case '--ngrok':
+                ngrokAPIKey = value;
+                break;
+            case '-r':
+            case '--remote':
+                remote_host = value;
+                break;
+            case '-R':
+            case '--RemoteForward':
+                forwardIn.push(value);
+                break;
+            case '-s':
+            case '--service':
+                service = value;
+                break;
+            case '-S':
+            case '--shell':
+                shell = true;
+                break;
+            case '-u':
+            case '--username':
+                username = value;
+                break;
+            default:
+                if (i == 2) remote_host = cmd;
+                if (i > 2) console.log('Invalid argument:', arg);
+        }
+    }
+
+    // prevent process from exiting
+    //process.stdin.resume();
+
+    // if no config file specified attempt to load default config
+    if (!configs) {
+        get_default_config();
+    }
+
+    // no default config build config from args
+    if (!remote_host) {
+        var config = {
+            enabled: true,
+            username: username,
+            password: password,
+            host: host,
+            port: port,
+            proxy_ports: forwardOut,
+            remote_ports: forwardIn,
+            service_name: service,
+            server_name: account,
+            ngrok_api: ngrokAPIKey,
+            private_key: privateKey
+        };
+        configs = [config];
+    }
+
+    // process each tunnel config in ssh proxy tunnel list
+    var remote_server = null;
+    configs.forEach(async config => {
+
+        // skip tunnel if not enabled
+        if (config.disabled) return;
+
+        // if remote host specified, only select tunnel for remote host
+        if (remote_host && remote_host !== config.hostname) return;
+        config.server_name = config.hostname || remote_host || 'ssh_tunnel_proxy';
+        remote_server = remote_host;
+
+        // if system key storage name specified get key from system keychain
+        if (config.server_name) {
+            const service_name = config.service_name || 'ssh_tunnel_proxy';
+            config.private_key = await keypairStorage.get_keypair(service_name, config.server_name);
+        }
+
+        // if private key filename specified, read private key
+        if (privateKey) {
+            config.private_key_filename = privateKey;
+        }
+        if (shell || exec.length === 0) {
+            config.shell = true;
+        }
+        if (exec.length > 0) {
+            config.exec = exec;
+        }
+        // create new tunnel and start connection
+        var sshTunnelProxy = new SSHTunnelProxy();
+        proxies.push(sshTunnelProxy);
+        sshTunnelProxy.debug_en = debug;
+        sshTunnelProxy.connectSSH(config);
+    });
+    if (remote_host && !remote_server) {
+        console.log(`Remote host ${remote_host} not found`);
+    }
+
+}
+
+main(process.argv);
