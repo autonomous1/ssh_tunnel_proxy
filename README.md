@@ -7,16 +7,20 @@ In addition to the node api, a command line function called ssh-node2 is include
 
 ### Command line examples
 
+Initialize ssh2 command:
+```
+npm i ssh_tunnel_proxy -g
+```
 Connect to remote host and establish local forwards:
 
 ```
-./ssh2-node -u=<username> -h=192.168.1.1 -k=~/.ssh/<private_key> -L=8180:192.168.1.1:80
+ssh2-node <username>@<hostname> -i=~/.ssh/<private_key> -L=8180:192.168.1.1:80
 ```
 
-Connect to host using parameters stored in ~/.config/ssh_tunnel_proxy/config.json:
+Connect to host with parameters stored in ~/.config/ssh_tunnel_proxy/config.json:
 
 ```
-./ssh2-node rh2
+ssh2-node rh2
 ```
 
 default config file, located at:
@@ -35,11 +39,88 @@ default config file, located at:
 }]
 ```
 
-Execute a series of commands on remote host
+Execute command on remote host
 ```
-./ssh2-node rh2 -e='uptime' -e='ls -all' -d
+ssh2-node rh2 "ls -all"
 ```
 
+### List of command-line options (compatible with original ssh2 command):
+```
+Usage: ssh2-node [options] [userhost] [exec...]
+
+Nodejs ssh2 command line client
+
+Arguments:
+  userhost                                          Connect to hostname in config.
+  exec                                              Command to exec on remote host (must be in quotes)
+
+Options:
+  -V, --version                                     output the version number
+  -2 --protocolv2 [protocolv2]                      Forces ssh to try protocol version 2 only.
+  -4 --ipv4only [ipv4only]                          Forces ssh to use IPv4 addresses only.
+  -6 --ipv6only [ipv6only]                          Forces ssh to use IPv6 addresses only.
+  -A --forward_enable [forward_enable]              Enables forwarding of the authentication agent
+                                                    connection.
+  -a --forward_disable [forward_disable]            Disables forwarding of the authentication agent
+                                                    connection.
+  -b --bind [bind]                                  bind_address
+  -C --compress [compress]                          Requests compression of all data
+  -c --cipher [cipher]                              cipher_spec
+  -D --dynamic_forward [dynamic_forward]             Specifies a local 'dynamic' application-level
+                                                    port forwarding.
+  -e --escape [escape]                              escape_char Sets the escape character for
+                                                    sessions with a pty.
+  -F --config [config]                              configfile
+  -f --background [background]                      Requests ssh to go to background just before
+                                                    command execution.
+  -g --local_forward_remote [local_forward_remote]  Allows remote hosts to connect to local forwarded
+                                                    ports.
+  -I --smartcard [smartcard]                        smartcard_device Specify the device ssh.
+  -i --identity [identity]                          Private key filename.
+  -K --gssapi_auth [gssapi_auth]                    Enables GSSAPI-based authentication and
+                                                    forwarding (delegation) of GSSAPI credentials to
+                                                    the server.
+  -k --gssapi_disable [gssapi_disable]              Disables forwarding (delegation) of GSSAPI
+                                                    credentials to the server.
+  -L --local_forward_out [local_forward_out...]     bind_address:port:host:hostport
+  -l --login_name [login_name]                      login_name
+  -M --master_mode [master_mode]                    Places the ssh client into 'master' mode for
+                                                    connection sharing. Multiple -M options
+  -m --mac_spec [mac_spec]                          mac_spec
+  -N --no_exec [no_exec]                            Do not execute a remote command.
+  -n --redirect_stdin [redirect_stdin]              Redirects stdin from /dev/null
+  -O --ctl_cmd [ctl_cmd]                            ctl_cmd
+  -o --option [option]                              option
+  -p --port [port]                                  port Port to connect to on the remote host.
+  -q --quiet [quiet]                                Quiet mode. Causes most warning and diagnostic
+                                                    messages to be suppressed.
+  -R --local_forward_in [local_forward_in...]       bind_address:port:host:hostport
+  -S --ctl_path [ctl_path]                          ctl_path Specifies the location of a control
+                                                    socket for connection sharing.
+  -s --subsystem [subsystem]                        May be used to request invocation of a subsystem
+                                                    on the remote system.
+  -T --disable_tty [disable_tty]                    Disable pseudo-tty allocation.
+  -t --force_tty [force_tty]                        Force pseudo-tty allocation.
+  -V --version [version]                            Display the version number and exit.
+  -v --verbose [verbose]                            Verbose mode. Causes ssh to print debugging
+                                                    messages about its progress.
+  -W --forward_stdin_stdout [forward_stdin_stdout]  host:port Requests that standard input and output
+                                                    on the client be forwarded to host on port ver
+                                                    the secure channel.
+  -w --tunnel [tunnel]                              Requests tunnel device forwarding with the
+                                                    specified tun(4) devices between the client
+                                                    (local_tun) and the server (remote_tun).
+  -X --x11 [x11]                                    Enables X11 forwarding.
+  -x --x11_disable [x11_disable]                    Disables X11 forwarding.
+  -Y --x11_trusted [x11_trusted]                    Enables trusted X11 forwarding.
+  -y --log [log]                                    Send log information using the syslog(3)
+  -H --ngrok [ngrok]                                Obtain connectiion hostport from ngrok
+  -J --keychain_service [keychain_service]          Service name to obtain private key from system
+                                                    keychain.
+  -j --keychain_account [keychain_account]          Account name to obtain private key from system
+                                                    keychain.
+  -h, --help                                        display help for command
+```
 ### Api examples
 
 Exec remote commands using async await and processing result through streams.
