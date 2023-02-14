@@ -1,0 +1,1 @@
+declare module 'ssh_tunnel_proxy';
