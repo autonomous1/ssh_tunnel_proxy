@@ -165,7 +165,6 @@ async function lsTest(sshTunnelProxy) {
         );
 
         const lscmd = 'ls -all';
-        //const lscmd = 'ls -all | column --table --table-columns pm,links,user,group,size,month,day,time,name -J';
         console.log('\ninvoking ' + lscmd + ' on remote host:\n');
         await sshTunnelProxy.execCmd(lscmd, tunnel);
 
@@ -188,7 +187,6 @@ async function syslogTest(sshTunnelProxy) {
             process.stdout,
             () => { }
         );
-        //const syslogcmd = 'tail /var/log/syslog | column --table --table-columns-limit 6 --table-columns month,day,time,host,proc,msg -J';
         const syslogcmd = 'tail /var/log/syslog';
         console.log('\ninvoking ' + syslogcmd + ' on remote host:\n');
         await sshTunnelProxy.execCmd(syslogcmd, tunnel);

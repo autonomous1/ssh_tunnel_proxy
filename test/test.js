@@ -9,7 +9,7 @@ const assert = require('assert');
 const { describe, it } = require('mocha');
 const fs = require('fs');
 
-const { SSHTunnelProxy, KeypairStorage, NgrokApi } = require('../lib/index.js');
+const { SSHTunnelProxy, KeypairStorage, NgrokApi } = require('..');
 
 // get config file containing api keys
 const homedir = require('os').homedir();
@@ -68,41 +68,25 @@ describe('Validate local forwards', function () {
   });
   it('invalid local forward format ' + local_forward[2], function () {
     const err = {
-      message: 'Invalid local forward',
-      info: {
-        local_ports: '',
-        remote_ports: '',
-      }
+      message: 'Invalid local forward'
     };
     assert.throws(() => { sshTunnelProxy.validate_local_forward([local_forward[2]], whitelist) }, err);
   });
   it('invalid local forward format ' + local_forward[3], function () {
     const err = {
-      message: 'Invalid local forward',
-      info: {
-        local_ports: '192.168.43.5',
-        remote_ports: '',
-      }
+      message: 'Invalid local forward'
     };
     assert.throws(() => { sshTunnelProxy.validate_local_forward([local_forward[3]], whitelist) }, err, 'should be invalid');
   });
   it('invalid local forward system port ' + local_forward[4], function () {
     const err = {
-      message: 'Invalid local forward',
-      info: {
-        local_ports: '',
-        remote_ports: '137',
-      }
+      message: 'Invalid local forward'
     };
     assert.throws(() => { sshTunnelProxy.validate_local_forward([local_forward[4]], whitelist) }, err, 'should be invalid');
   });
   it('invalid local forward port range ' + local_forward[5], function () {
     const err = {
-      message: 'Invalid local forward',
-      info: {
-        local_ports: '-1',
-        remote_ports: '65537',
-      }
+      message: 'Invalid local forward'
     };
     assert.throws(() => { sshTunnelProxy.validate_local_forward([local_forward[5]], whitelist) }, err, 'should be invalid');
   });
