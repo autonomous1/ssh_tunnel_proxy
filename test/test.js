@@ -28,7 +28,6 @@ try {
 
 const sshTunnelProxy = new SSHTunnelProxy();
 const keypairStorage = new KeypairStorage();
-const ngrokApi = new NgrokApi(opts.ngrok_api);
 
 const whitelist = {
   80: true,
@@ -155,6 +154,7 @@ describe('', function () {
 */
 
 if (opts) {
+  const ngrokApi = new NgrokApi(opts.ngrok_api);
   describe('Get ngrok hostport', function () {
     //const parse_ngrok_hostport = ngrok_service.__get__('parse_ngrok_hostport');
     var test_endpoint = [{
