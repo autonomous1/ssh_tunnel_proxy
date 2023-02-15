@@ -78,14 +78,20 @@ export class SSHTunnelProxy extends EventEmitter {
 
   // function to close all active sockets for tunnel restart and exception handling
   protected close_sockets(proxy_ports: Array<string>) {
+
     if (!proxy_ports) return;
 
     proxy_ports.forEach((proxy_port) => {
       const server = this.listener[proxy_port];
       if (server && server.listening) {
         this.debug_en && this.debug('SSH Server :: closing forward:', proxy_port);
-        server.close();
-        delete this.listener[proxy_port];
+        try {
+          server.close();
+        } catch (err) {
+          this.debug_en && this.debug('error closing server:', err);
+        } finally {
+          delete this.listener[proxy_port];
+        }
       }
     });
   }
@@ -93,52 +99,58 @@ export class SSHTunnelProxy extends EventEmitter {
   // create forward out on socket connection
   protected setup_ssh_forward(socket: Socket, remote_hostname: string, remote_port: string) {
 
-    // setup stream pipeline when port forward is ready
-    const on_setup_ssh_forward = (err: Error, stream: Channel) => {
-      if (err) {
-        this.emit('debug', err);
-        this.debug_en && this.debug('socket forward error:', err);
-        return;
-      }
+      // create port forward
+      this.client.forwardOut(
+        socket.remoteAddress,
+        socket.remotePort,
+        remote_hostname,
+        remote_port,
+        (err: Error, stream: Channel) => {  // Wrap callback in arrow function to capture err
 
-      stream.on('end', () => {
-        socket.resume();
-      });
-
-      // pipe the data from the local socket to the remote port and visa versa
-      stream.pipe(socket).pipe(stream);
-
-      const shutdown_forward = () => {
-        stream.unpipe(socket);
-        socket.unpipe(stream);
-        stream.end();
-      };
-
-      // if socket ends, close stream and pipes
-      socket.on('close', () => {
-        shutdown_forward();
-      });
-
-      // if socket error, emit error and close stream
-      socket.on('error', (err: Error) => {
-        this.emit('debug', err);
-        this.debug_en && this.debug('socket on error:', err);
-        shutdown_forward();
-      });
-    };
-
-    // create port forward
-    this.client.forwardOut(
-      socket.remoteAddress,
-      socket.remotePort,
-      remote_hostname,
-      remote_port,
-      on_setup_ssh_forward,
-    );
-  }
+          if (err) {
+            this.debug_en && this.debug('socket forward error:', err);
+            return;
+          }
+      
+          stream.on('end', () => {
+            socket.resume();
+          });
+      
+          // pipe the data from the local socket to the remote port and visa versa
+          stream.pipe(socket).pipe(stream);
+      
+          // Define source of shutdown_forward() outside of try-catch block      
+          let shutdown_forward: () => void;
+      
+          try {
+            // Define source of shutdown_forward() inside of try-catch block
+            shutdown_forward = () => {
+              stream.unpipe(socket);
+              socket.unpipe(stream);
+              stream.end();
+            };
+            
+            // if socket ends, close stream and pipes
+            socket.on('close', () => {
+              shutdown_forward();
+            });
+      
+            // if socket error, emit error and close stream
+            socket.on('error', (err: Error) => {
+              this.debug_en && this.debug('socket on error:', err);
+              shutdown_forward();
+            });
+            
+          } catch (err) {
+            this.debug_en && this.debug('listen err:', err);
+          }
+        },
+      );
+    }
 
   // function to setup proxy forwards for ssh tunnel
   public setupProxyPorts(proxy_ports: Array<string>) {
+
     return new Promise<void>((resolve, reject) => {
       if (!proxy_ports) {
         resolve();
@@ -149,34 +161,43 @@ export class SSHTunnelProxy extends EventEmitter {
 
       // iterate through a list of local forward ports and create a local proxy port
       proxy_ports.forEach((proxy_port) => {
-        const [local_port, remote_hostname, remote_port] = proxy_port.split(':');
-
-        // create local socket server
-        const server = this.listener[proxy_port];
+        const [local_port_str, remote_hostname, remote_port] = proxy_port.split(':');
+        const local_port = parseInt(local_port_str);
+      
+        // if server already in use, close
+        let server = this.listener[proxy_port];
         if (server && server.listening) {
           this.debug_en && this.debug('SSH Server :: closing forward 2:', proxy_port);
           server.close();
         }
-        this.listener[proxy_port] = createServer({ allowHalfOpen: false }, (socket) => {
+
+        // create local socket server
+        server = createServer({ allowHalfOpen: false }, (socket) => {
+
           if (this.debug_en) {
             const debug_msg = 'SSH Server :: connection on ' + local_port + ' ' + socket.remotePort;
-            this.emit('debug', debug_msg);
             this.debug(debug_msg);
           }
-
+      
           // create a proxy forward between local and remote ports
           this.setup_ssh_forward(socket, remote_hostname, remote_port);
         });
 
+        this.listener[proxy_port] = server;
+
+        // handle any server errors here
+        server.on('error',(err)=>{
+          this.debug_en && this.debug('listen err:', err);
+          this.emit('error', err);
+          reject(err);
+        });
+
         // start listening on port
-        try {
-          const status_msg = 'SSH Server :: before listen on ' + local_port;
-          this.emit('debug', status_msg);
-          this.listener[proxy_port].listen(local_port, () => {
+        server.listen(local_port, () => {
             // emit server listening on port message
             const status_msg = 'SSH Server :: bound on ' + local_port;
-            this.emit('debug', status_msg);
-
+            this.debug_en && this.debug(status_msg);
+      
             // if all listeners have been successfully established, resolve setup connection
             if (listeners++ >= proxy_ports.length - 1) {
               this.emit('ssh_tunnel_ready', {});
@@ -186,101 +207,79 @@ export class SSHTunnelProxy extends EventEmitter {
               }
               resolve();
             }
-          });
-        } catch (err) {
-          this.debug_en && this.debug('listen err:', err);
-          reject(err);
-        }
+          }
+        );
       });
-    });
+     });
   }
 
   // execute remote command, optionally stream result and errors
-  public execCmd(cmd: string, dataStream?: Writable, errStream?: Writable) {
-    return new Promise<void>((resolve, reject) => {
-      const remote_exec = (err: Error, stream: Channel) => {
-        if (err) {
-          reject(err);
-          return;
-        }
+public execCmd(cmd: string, dataStream?: Writable, errStream?: Writable) {
+  return new Promise<void>((resolve, reject) => {
+    this.client.exec(cmd, (err: Error, stream: Channel) => {
+      if (err) {
+        return reject(err);
+      }
+      
+      stream.on('close', () => resolve());
 
-        const onClose = () => {
-          stream.removeListener('close', onClose);
-          resolve();
-        };
-        stream.on('close', onClose);
+      if (dataStream) {
+        stream.on('data', (data) => dataStream.write(data));
+      } else {
+        stream.on('data', (data) => stdout.write(data));
+      }
 
-        stream.on('data', (data) => {
-          if (dataStream) dataStream.write(data);
-          else stdout.write(data);
-        });
-
-        stream.stderr.on('data', (data) => {
-          if (errStream) errStream.write(data);
-          else stderr.write(data);
-        });
-      };
-      this.client.exec(cmd, remote_exec);
+      if (errStream) {
+        stream.stderr.on('data', (data) => errStream.write(data));
+      } else {
+        stream.stderr.on('data', (data) => stderr.write(data));
+      }
     });
-  }
+  });
+}
+
 
   // handle remote shell stream processing
-  protected remote_shell(err: Error, stream: Channel) {
+protected remote_shell(err: Error, stream: Channel) {
     if (err) throw err;
 
     // disable local echo of input chars, use remote output only
     stdin.setRawMode(true);
-    //stream.stdout.write('stty -echo\n');
 
     // forward data from local terminal to remote host
-    const stdinData = (data) => {
+    stdin.on('data', (data) => {
       stream.stdin.write(data);
-    };
-    stdin.on('data', stdinData);
+    });
 
-    const stdoutData = (data) => {
+    stream.stdout.on('data', (data) => {
       stdout.write(data);
-    };
-    stream.stdout.on('data', stdoutData);
+    });
 
     // shutdown this process when stream ends (user logs out)
-    stream
-      .on('close', () => {
-        stdin.setRawMode(false);
-        stdin.removeListener('data', stdinData);
-        stream.stdout.removeListener('data', stdoutData);
-        exit();
-      })
-      .stderr.on('data', (data) => {
-        this.debug_en && this.debug('shell' + data);
-      });
+    stream.on('close', () => {
+      stdin.setRawMode(false);
+      stdin.removeAllListeners();
+      stream.stdout.removeAllListeners();
+      exit();
+    }).stderr.on('data', (data) => {
+      this.debug_en && this.debug('shell' + data);
+    });
   }
+
 
   // remove ssh client event listeners
   protected cleanup_events(client: Client) {
-    const eventNames = ['close', 'end', 'error', 'greeting', 'handshake', 'ready'];
-    for (let j = 0; j < eventNames.length; j++) {
-      const eventName = eventNames[j];
-      const events = client._events[eventName];
-      if (events) {
-        if (events instanceof Array) {
-          for (let i = 0; i < events.length; i++) {
-            client.removeListener(eventName, events[i]);
-          }
-        }
-        if (events instanceof Function) {
-          client.removeListener(eventName, events);
-        }
-      }
-    }
+    client.removeAllListeners('ssh_event');
   }
 
   // handle setting up ssh client and proxy forward ports
   public do_ssh_connect(opts: SSHConfig) {
+
     const _client = this.client;
 
     // create a new ssh client connection with supplied credentials and hostname/port
     return new Promise<void>((resolve) => {
+
       // close open sockets on server, otherwise initialize open sockets storage
       this.close_sockets(opts.proxy_ports);
 
@@ -301,7 +300,6 @@ export class SSHTunnelProxy extends EventEmitter {
 
         // if shell requested, enable remote terminal
         if (opts.shell) {
-          //const channel = await _this.nodeSSH.requestShell();
           this.client.shell(this.remote_shell);
 
           // otherwise, if exec requested, exec series of cmds
@@ -314,7 +312,6 @@ export class SSHTunnelProxy extends EventEmitter {
             }
           }
         }
-
         resolve();
       });
 
@@ -330,7 +327,6 @@ export class SSHTunnelProxy extends EventEmitter {
 
       _client.on('error', (err: Error) => {
         this.debug_en && this.debug('SSH Client :: error :: ' + err);
-        this.emit('debug', err);
         if (this._tunnelReadyTimeout) {
           clearTimeout(this._tunnelReadyTimeout);
           this._tunnelReadyTimeout = undefined;
@@ -362,6 +358,7 @@ export class SSHTunnelProxy extends EventEmitter {
         'private_key_filename',
       ];
       for (let i = 0; i < ssh_tunnel_extensions.length; i++) delete config[ssh_tunnel_extensions[i]];
+
       // connect to remote host
       _client.connect(config);
     });
@@ -369,27 +366,26 @@ export class SSHTunnelProxy extends EventEmitter {
 
   // validate port number - check for nan, out of valid port range, unauthorized system ports
   public validate_port_number(port: number, whitelist: object) {
-    if (isNaN(port)) return false;
-    if (port < 1 || port > 65535) return false;
-    if (port < 1024 && whitelist && whitelist[port] === undefined) return false;
+    if (isNaN(port) || port < 1 || port > 65535 || (port < 1024 && whitelist && whitelist[port] === undefined)) return false;
     return true;
   }
 
   // validate local forwards for correct format and valid ports
   public validate_local_forward(proxy_ports: Array<string>, whitelist: object) {
-    if (!proxy_ports) return;
 
-    const local_ports = [];
-    const remote_ports = [];
+    if (!proxy_ports) return true;
+
+    const invalid_ports = [];
+
     proxy_ports.forEach((proxy_port: string) => {
       const [local_port, remote_hostname, remote_port] = proxy_port.split(':');
-      const ilocal_port: number = parseInt(local_port);
-      const iremote_port: number = parseInt(remote_port);
-      if (remote_hostname.length < 1) remote_ports.push(remote_port);
-      if (!this.validate_port_number(ilocal_port, whitelist)) local_ports.push(local_port);
-      if (!this.validate_port_number(iremote_port, whitelist)) remote_ports.push(remote_port);
+      if (remote_hostname.length < 1) invalid_ports.push({ port: remote_port, type: 'remote' });
+      if (!this.validate_port_number(parseInt(local_port), whitelist))
+        invalid_ports.push({ port: local_port, type: 'local' });
+      if (!this.validate_port_number(parseInt(remote_port), whitelist))
+        invalid_ports.push({ port: remote_port, type: 'remote' });
     });
-    if (local_ports.length || remote_ports.length) {
+    if (invalid_ports.length) {
       const err = new Error('Invalid local forward');
       this.debug_en &&
         this.debug(
@@ -409,7 +405,11 @@ export class SSHTunnelProxy extends EventEmitter {
     const invoke = () => {
       this.connectSSH(opts, null);
     };
-    if (this.retries++ < 10) this._tunnelReadyTimeout = setTimeout(invoke, 5000);
+    if (this.retries++ < 10) {
+      this._tunnelReadyTimeout = setTimeout(invoke, 5000);
+    } else {
+      this.debug_en && this.debug(`Retry attempts exhausted.`);
+    }
   }
 
   // attempt to establish ssh tunnel to server with supplied parameters.
@@ -431,7 +431,6 @@ export class SSHTunnelProxy extends EventEmitter {
   }
 
   // setup ssh connection parameters and attempt to establish ssh tunnel
-  // todo: if opts have changed while service is running, shutdown current service and restart with new opts
   public async connectSSH(opts: SSHConfig, whitelist: object | null) {
     // make deep copy of opts for modification
     const _opts = JSON.parse(JSON.stringify(opts));
@@ -443,7 +442,6 @@ export class SSHTunnelProxy extends EventEmitter {
     try {
       this.validate_local_forward(_opts.proxy_ports, _opts.whitelist);
     } catch (err) {
-      this.emit('debug', err);
       this.debug_en && this.debug(err);
       throw(err);
     }
@@ -460,7 +458,7 @@ export class SSHTunnelProxy extends EventEmitter {
         }
         _opts.privateKey = readFileSync(_opts.private_key_filename).toString();
       } catch (err) {
-        console.log('Error loading key:', err);
+        this.debug_en && this.debug(err);
         throw(err);
       }
     }
@@ -486,6 +484,7 @@ export class SSHTunnelProxy extends EventEmitter {
         _opts.port = hostport.port;
       } else {
         const err = new Error('invalid hostport obtained from ngrok api');
+        this.debug_en && this.debug(err);
         throw(err);
       }
     }
@@ -522,6 +521,7 @@ export class SSHTunnelProxy extends EventEmitter {
 
   protected debug(...args) {
     console.log(...args);
+    this.emit('debug', ...args);
   }
 }
 

@@ -111,11 +111,9 @@ export function main() {
   // if no config file specified attempt to load default config
   if (config_host) {
     configs = get_default_config();
-  }
-
+  } else  {
   // no default config build config from args
-  if (!config_host) {
-    const config: SSHConfig = {
+  const config: SSHConfig = {
       hostname: 'cli',
       username: username,
       host: host,

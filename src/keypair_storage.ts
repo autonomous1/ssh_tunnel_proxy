@@ -17,40 +17,39 @@ import * as keytar from 'keytar';
 export class KeypairStorage {
 
   // export function to generate keypair and store under service name and account
-  generate_and_store_keypair(service_name: string, account: string) {
-    const keypair = this.generate_keypair();
-    return new Promise((resolve, reject) => {
-      keytar.setPassword(service_name, account, keypair.private_key).then(
-        () => {
-          resolve(keypair.public_key);
-        },
-        (err) => {
-          reject(err);
-        },
-      );
-    });
+  public async generate_and_store_keypair(service_name: string, account: string) {
+      try {
+          const keypair = this.generate_keypair();
+          await keytar.setPassword(service_name, account, keypair.private_key);
+          return keypair.public_key;
+      } catch(err) {
+          console.log('Error storing key:', err);
+          throw(err);
+      }
   }
 
   // export function to obtain public key from system's keychain stored under service_name and account
-  get_public_key_from_keychain(service_name: string, account: string) {
-    return new Promise((resolve, reject) => {
-      keytar.getPassword(service_name, account).then(
-        (private_key) => {
+  public async get_public_key_from_keychain(service_name: string, account: string) {
+      try {
+          const private_key = await keytar.getPassword(service_name, account);
           const public_key = this.get_public_key_from_private(private_key);
-          resolve(public_key);
-        },
-        (err) => {
-          reject(err);
-        },
-      );
-    });
+          return public_key;
+      } catch (err) {
+          console.log('Error getting key from keychain:', err);
+          throw(err);
+      }
   }
 
-  get_public_key_from_private(private_key: string) {
+
+  public get_public_key_from_private(private_key: string) {
     if (private_key) {
-      const key = parsePrivateKey(private_key, 'pem');
-      if (key) return key.toPublic().toString('ssh');
-      else return null;
+      try {
+        const key = parsePrivateKey(private_key, 'pem');
+        if (key) return key.toPublic().toString('ssh');
+      } catch (err) {
+        //this.debug_en && this.debug('Error parsing private key:', err);  
+        console.log('Error parsing private key:', err);  
+      }
     }
     return null;
   }
