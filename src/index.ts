@@ -238,9 +238,8 @@ public execCmd(cmd: string, dataStream?: Writable, errStream?: Writable) {
   });
 }
 
-
   // handle remote shell stream processing
-protected remote_shell(err: Error, stream: Channel) {
+  protected remote_shell(err: Error, stream: Channel) {
     if (err) throw err;
 
     // disable local echo of input chars, use remote output only
@@ -302,7 +301,7 @@ protected remote_shell(err: Error, stream: Channel) {
         if (opts.shell) {
           this.client.shell(this.remote_shell);
 
-          // otherwise, if exec requested, exec series of cmds
+        // otherwise, if exec requested, exec series of cmds
         } else {
           if (opts.exec && opts.exec.length > 0) {
             for (let i = 0; i < opts.exec.length; i++) {
@@ -339,11 +338,7 @@ protected remote_shell(err: Error, stream: Channel) {
       const config = JSON.parse(JSON.stringify(opts));
 
       // add default ssh2 config options
-      config.debug = this.debug_ssh
-        ? (...args) => {
-            console.log(...args);
-          }
-        : null;
+      config.debug = this.debug_ssh;
       config.keepaliveInterval = opts.keepaliveInterval || 10000;
 
       // remove ssh_tunnel_proxy config extensions
