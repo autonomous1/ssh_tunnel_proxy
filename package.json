@@ -2,7 +2,7 @@
   "name": "ssh_tunnel_proxy",
   "author": "Autonomous",
   "license": "MIT",
-  "version": "2.0.3",
+  "version": "2.0.5",
   "description": "setup ssh tunnel with local and remote port forwarding, node ssh cli interface, use ngrok to obtain host:port",
   "main": "dist/cjs/index.js",
   "module": "dist/esm/index.js",
