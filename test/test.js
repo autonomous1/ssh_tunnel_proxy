@@ -8,13 +8,23 @@ to run ssh tunnel api tests edit config.json and provide api keys for each servi
 const assert = require('assert');
 const { describe, it } = require('mocha');
 const fs = require('fs');
-
 const { SSHTunnelProxy, KeypairStorage, NgrokApi } = require('..');
+//const sinon = require('sinon');
+//const {EventEmitter} = require('events');
+
 
 // get config file containing api keys
 const homedir = require('os').homedir();
-const config = JSON.parse(fs.readFileSync(homedir + '/.config/ssh_tunnel_proxy/config.json'), 'utf8');
-const opts = config[0];
+let config = {};
+let opts = {};
+try {
+  config = JSON.parse(fs.readFileSync(homedir + '/.config/ssh_tunnel_proxy/config.json'), 'utf8');
+  opts = config[0];
+} catch (err) {
+  // if no config, disable tests that require config opts
+  config = null;
+  opts = null;
+}
 
 const sshTunnelProxy = new SSHTunnelProxy();
 const keypairStorage = new KeypairStorage();
@@ -144,55 +154,26 @@ describe('', function () {
 });
 */
 
-describe('Get ngrok hostport', function () {
-  //const parse_ngrok_hostport = ngrok_service.__get__('parse_ngrok_hostport');
-  var test_endpoint = [{
-    hostport: '8.tcp.ngrok.io:17632'
-  }];
-  var result_opts = ngrokApi.parse_ngrok_hostport(test_endpoint, opts);
-  it('host should match 8.tcp.ngrok.io', function () {
-    assert.equal(result_opts.host, '8.tcp.ngrok.io');
-  });
-  it('port should match 17632', function () {
-    assert.equal(result_opts.port, '17632');
-  });
-  it('host, port should be obtained from api', async () => {
-    const result = await ngrokApi.get_hostport(opts);
-    assert(result.host, 'host should exist');
-    assert(result.port, 'port should exist');
-  }, (err) => {
-    assert.equal(err, null);
-  });
-
-});
-
-/*
-describe('ssh connection client ready', function () {
-});
-
-it('myEmitter should be enabled', function () {
-  assert(myEmitter, 'received event emitter');
-});
-
-describe('ssh connection integration test', function () {
-
-  it('ssh connect should invoke the ssh ready function', function (done) {
-    this.timeout(10000);
-    myEmitter.on('ssh_client_ready', (ssh_client) => {
-      assert(ssh_client, 'ssh client created');
-      done();
+if (opts) {
+  describe('Get ngrok hostport', function () {
+    //const parse_ngrok_hostport = ngrok_service.__get__('parse_ngrok_hostport');
+    var test_endpoint = [{
+      hostport: '8.tcp.ngrok.io:17632'
+    }];
+    var result_opts = ngrokApi.parse_ngrok_hostport(test_endpoint, opts);
+    it('host should match 8.tcp.ngrok.io', function () {
+      assert.equal(result_opts.host, '8.tcp.ngrok.io');
     });
-  });
-  var ws_socket = false;
-  it('two websocket servers should be created', function (done) {
-    this.timeout(18000);
-    myEmitter.on('websocket_server_created', (socket) => {
-      assert(socket, 'ssh websocket server created:' + socket.remotePort);
-      if (!ws_socket) done();
-      ws_socket = true;
+    it('port should match 17632', function () {
+      assert.equal(result_opts.port, '17632');
     });
-  });
-  connect_ssh(opts);
+    it('host, port should be obtained from api', async () => {
+      const result = await ngrokApi.get_hostport(opts);
+      assert(result.host, 'host should exist');
+      assert(result.port, 'port should exist');
+    }, (err) => {
+      assert.equal(err, null);
+    });
 
-});
-*/
+  });
+}
