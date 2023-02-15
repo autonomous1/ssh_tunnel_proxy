@@ -14,7 +14,7 @@ npm i ssh_tunnel_proxy -g
 Connect to remote host and establish local forwards:
 
 ```
-ssh2-node -i=~/.ssh/<private_key> -L=8180:192.168.1.1:80 <username>@<hostname>
+ssh2-node -i ~/.ssh/<private_key> -L 8180:192.168.1.1:80 <username>@<hostname>
 ```
 
 Connect to host with parameters stored in ~/.config/ssh_tunnel_proxy/config.json:
