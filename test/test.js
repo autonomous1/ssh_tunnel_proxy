@@ -1,8 +1,6 @@
 /*
 todo:
-add generate and store keys test
-add ngrok api test with stored api key in ssh_tunnel_proxy config
-to run ssh tunnel api tests edit config.json and provide api keys for each service
+describe tests for setting up connection and proxy ports
 */
 
 const assert = require('assert');
@@ -144,16 +142,8 @@ describe('Store and retrieve private key in system keychain', function () {
   });
 });
 
-/*
-// generate and store private key test
-describe('', function () {
-  it('', function () {
-    assert('', '');
-  });
-});
-*/
-
-if (opts) {
+// only run ngrok test if config file is specified and has ngrok key
+if (opts && opts.ngrok_api) {
   const ngrokApi = new NgrokApi(opts.ngrok_api);
   describe('Get ngrok hostport', function () {
     //const parse_ngrok_hostport = ngrok_service.__get__('parse_ngrok_hostport');
