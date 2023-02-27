@@ -1,0 +1,64 @@
+{
+    "sshServer": {
+        "port": 8220,
+        "host": "localhost",
+        "hostkeys": ["./config/ed25519"]
+    },
+    "sshClient": {
+        "name": "sshclient",
+        "username": "username",
+        "key": "./config/ed25519"
+    },
+    "server": [
+        {
+            "name": "remote server",
+            "host": "localhost",
+            "port": 8231
+        },
+        {
+            "name": "local server",
+            "host": "localhost",
+            "port": 8221
+        }
+    ],
+    "client": [
+        {
+            "name": "remote client1",
+            "port": 8232
+        },
+        {
+            "name": "remote client2",
+            "port": 8233
+        },
+        {
+            "name": "local client1",
+            "port": 8222
+        },
+        {
+            "name": "local client2",
+            "port": 8223
+        }
+    ],
+    "link": [
+        {
+            "server": "remote server",
+            "client": "local client1",
+            "dest": "remote"
+        },
+        {
+            "server": "remote server",
+            "client": "local client2",
+            "dest": "remote"
+        },
+        {
+            "server": "local server",
+            "client": "remote client1",
+            "dest": "local"
+        },
+        {
+            "server": "local server",
+            "client": "remote client2",
+            "dest": "local"
+        }
+    ]
+}
