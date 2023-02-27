@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import { Socket } from 'net';
-import { pipeline } from 'node:stream/promises';
+import { pipeline } from 'stream';
+//import { pipeline } from 'node:stream/promises';
 import split from 'split';
 import { obj as through2 } from 'through2';
 
