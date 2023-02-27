@@ -8,17 +8,18 @@
   "module": "dist/esm/index.js",
   "types": "typings/index.d.ts",
   "scripts": {
-    "build": "npm run build:cjs && npm run build:esm && npm run build:types",
+    "build": "npm run build:cjs && npm run build:esm && npm run build:types && npm run build:testbench",
     "build:cjs": "node tools/cleanup cjs && tsc -p config/tsconfig.cjs.json",
     "build:esm": "node tools/cleanup esm && tsc -p config/tsconfig.esm.json",
     "build:types": "node tools/cleanup types && tsc -p config/tsconfig.types.json",
+    "build:testbench": "tsc -p config/tsconfig.testbench.json",
     "lint": "eslint \"src/*.ts\"",
     "prepare": "npm run build",
     "prepublishOnly": "npm test && npm run lint",
     "preversion": "npm run lint",
     "version": "git add -A src",
     "postversion": "git push && git push --tags",
-    "test": "mocha"
+    "test": "mocha --exit"
   },
   "repository": {
     "type": "git",
@@ -43,7 +44,8 @@
     "os": "^0.1.2",
     "split": "^1.0.1",
     "sshpk": "^1.17.0",
-    "through": "^2.3.8"
+    "through": "^2.3.8",
+    "through2": "^4.0.2"
   },
   "devDependencies": {
     "@types/node": "^18.13.0",
