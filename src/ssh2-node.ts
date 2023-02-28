@@ -110,18 +110,22 @@ export function main() {
     return;
   }
 
-  let configs: Array<SSHConfig> = [];
+  let configs: Array<SSHConfig> = null;
 
   // if no config file specified attempt to load default config
   if (config_host) {
     configs = get_default_config();
+    if (!configs) {
+      console.log('error: config host specified but configs file was not found');
+      process.exit();      
+    }
   } else  {
   // no default config build config from args
   const config: SSHConfig = {
       hostname: 'cli',
       username: username,
       host: host,
-      private_key_filename: opts.identity.trim(),
+      private_key_filename: (opts.identity) ? opts.identity.trim() : undefined,
     };
     configs = [config];
   }
