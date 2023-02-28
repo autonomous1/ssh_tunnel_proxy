@@ -27,7 +27,7 @@ export class SSHTestBench {
         this.keypairStorage = new KeypairStorage();
 
         // read test hostkeys
-        this.privateKey = readFileSync('/home/tim/.ssh/id_ed25519').toString();
+        this.privateKey = readFileSync('./config/ed25519').toString();
         this.publicKey = this.keypairStorage.get_public_key_from_private(this.privateKey);
         this.serverSocket = {};
     }
