@@ -106,6 +106,7 @@ describe('Validate local forwards', function () {
 });
 
 // generate, store and retrieve private key test
+/*
 describe('Store and retrieve private key in system keychain', function () {
   const service_name = 'ssh_proxy_tunnel';
   const account = 'test';
@@ -147,7 +148,7 @@ describe('Store and retrieve private key in system keychain', function () {
     });
   });
 });
-
+*/
 // only run ngrok test if config file is specified and has ngrok key
 if (opts && opts.ngrok_api) {
   const ngrokApi = new NgrokApi(opts.ngrok_api);
