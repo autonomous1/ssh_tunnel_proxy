@@ -5,16 +5,20 @@ ssh2-node: ssh-compatible command line interface to node ssh2
 */
 
 import * as process from 'process';
-import { readFileSync } from 'fs';
+import { readFileSync, existsSync } from 'fs';
 import { homedir } from 'os';
 import { Command } from 'commander';
 import { SSHTunnelProxy, SSHConfig, KeypairStorage } from './index';
-//import { SSHCredentialList } from '@ngrok/ngrok-api';
 
 function get_default_config() {
   let configs: Array<SSHConfig> = [];
   try {
-    configs = JSON.parse(readFileSync(homedir() + '/.config/ssh_tunnel_proxy/config.json').toString());
+    const config_file = homedir() + '/.config/ssh_tunnel_proxy/config.json'
+    if (existsSync(config_file)) {
+      configs = JSON.parse(readFileSync(config_file).toString());
+    } else {
+      configs = null;
+    }
   } catch (err) {
     console.log('Error loading config file:', err);
   }
