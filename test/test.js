@@ -16,8 +16,14 @@ const homedir = require('os').homedir();
 let config = {};
 let opts = {};
 try {
-  config = JSON.parse(fs.readFileSync(homedir + '/.config/ssh_tunnel_proxy/config.json'), 'utf8');
-  opts = config[0];
+  const config_file = homedir + '/.config/ssh_tunnel_proxy/config.json';
+  if (fs.existsSync(config_file)) {
+    config = JSON.parse(fs.readFileSync(config_file), 'utf8');
+    opts = config[0];
+  } else {
+    config = null;
+    opts = null;
+  }
 } catch (err) {
   // if no config, disable tests that require config opts
   config = null;
