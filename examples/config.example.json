@@ -1,0 +1,86 @@
+[
+  {
+    "hostname": "home",
+    "username": "user",
+    "host": "127.0.0.1",
+    "port": "9191",
+    "private_key_filename": "~/.ssh/id_ed25519",
+    "proxy_ports": ["8123:127.0.0.1:8123", "8080:127.0.0.1:8080"],
+    "whitelist": { "22": true, "80": true, "443": true }
+  },
+
+  {
+    "name": "home-v2",
+    "transport": {
+      "endpoint": { "host": "127.0.0.1", "port": 9191 },
+      "username": "user",
+      "privateKey": { "source": "file", "value": "~/.ssh/id_ed25519" },
+      "reachability": "zrok",
+      "keepaliveIntervalMs": 10000
+    },
+    "localForwards": [
+      {
+        "id": "home-assistant",
+        "listen": { "host": "127.0.0.1", "port": 8123 },
+        "target": { "host": "127.0.0.1", "port": 8123 }
+      },
+      {
+        "id": "cameras",
+        "listen": { "host": "127.0.0.1", "port": 8080 },
+        "target": { "host": "127.0.0.1", "port": 8080 }
+      }
+    ],
+    "portPolicy": {
+      "allowedPrivilegedPorts": [22],
+      "allowedLocalListenPorts": [8123, 8080],
+      "allowedRemoteHosts": ["127.0.0.1"]
+    },
+    "reconnect": {
+      "enabled": true,
+      "initialDelayMs": 1000,
+      "maxDelayMs": 30000,
+      "maxAttempts": 0
+    }
+  },
+
+  {
+    "name": "vps-fs",
+    "transport": {
+      "endpoint": { "host": "host.example.net", "port": 22 },
+      "username": "user",
+      "privateKey": { "source": "file", "value": "~/.ssh/id_ed25519" }
+    },
+    "localForwards": [
+      {
+        "id": "sshd",
+        "listen": { "host": "127.0.0.1", "port": 2222 },
+        "target": { "host": "127.0.0.1", "port": 22 }
+      }
+    ],
+    "portPolicy": {
+      "allowedPrivilegedPorts": [22],
+      "allowedLocalListenPorts": [2222],
+      "allowedRemoteHosts": ["127.0.0.1"]
+    }
+  },
+
+  {
+    "name": "vps-mariadb",
+    "transport": {
+      "endpoint": { "host": "host.example.net", "port": 22 },
+      "username": "user",
+      "privateKey": { "source": "file", "value": "~/.ssh/id_ed25519" }
+    },
+    "localForwards": [
+      {
+        "id": "mariadb",
+        "listen": { "host": "127.0.0.1", "port": 13306 },
+        "target": { "host": "127.0.0.1", "port": 3306 }
+      }
+    ],
+    "portPolicy": {
+      "allowedLocalListenPorts": [13306],
+      "allowedRemoteHosts": ["127.0.0.1"]
+    }
+  }
+]

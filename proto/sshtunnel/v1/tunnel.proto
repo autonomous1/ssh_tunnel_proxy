@@ -1,0 +1,343 @@
+// sshtunnel/v1/tunnel.proto
+//
+// Language-neutral data model for programmatic SSH TCP port forwarding.
+//
+// Design rules for this file:
+//   1. It describes CONFIGURATION, STATE and EVENTS only. It never describes
+//      implementation mechanics (sockets, channels, event emitters, promises).
+//   2. It contains no credential material. Secrets are referenced indirectly
+//      through a CredentialRef so that a graph/config file can be committed,
+//      diffed and shared without leaking keys.
+//   3. It is the source of truth shared by the TypeScript runtime, a future
+//      Python runtime, and any control-plane API placed in front of them.
+//
+// License: MIT
+
+syntax = "proto3";
+
+package sshtunnel.v1;
+
+option go_package = "github.com/autonomous/ssh_tunnel_proxy/gen/sshtunnel/v1;sshtunnelv1";
+option java_multiple_files = true;
+option java_package = "org.sshtunnel.v1";
+
+// ---------------------------------------------------------------------------
+// Primitives
+// ---------------------------------------------------------------------------
+
+// A TCP endpoint. `host` is an IP literal or DNS name; it is never a URL.
+message Endpoint {
+  string host = 1;
+  uint32 port = 2; // 1..65535
+}
+
+// Indirect reference to secret material. The runtime resolves the reference at
+// connect time; the model itself never carries the secret.
+message CredentialRef {
+  enum Source {
+    SOURCE_UNSPECIFIED = 0;
+    SOURCE_FILE = 1;        // value = filesystem path, "~" expanded by runtime
+    SOURCE_ENV = 2;         // value = environment variable name
+    SOURCE_INLINE = 3;      // value = literal (test fixtures only)
+    SOURCE_AGENT = 4;       // value = agent socket path, or empty for SSH_AUTH_SOCK
+    SOURCE_CALLBACK = 5;    // value = host-defined resolver name
+  }
+  Source source = 1;
+  string value = 2;
+}
+
+// ---------------------------------------------------------------------------
+// Port policy
+// ---------------------------------------------------------------------------
+
+// Port authorization is an explicit caller policy, not a library surprise.
+// Local listen ports and remote target ports are separate decisions because
+// they protect different things: local binding rights vs. what the SSH peer is
+// permitted to reach.
+message PortPolicy {
+  // Ports below 1024 are rejected unless listed here.
+  repeated uint32 allowed_privileged_ports = 1;
+
+  // If non-empty, a local listener may only bind one of these ports.
+  repeated uint32 allowed_local_listen_ports = 2;
+
+  // If non-empty, a forward may only target one of these remote ports.
+  repeated uint32 allowed_remote_target_ports = 3;
+
+  // If non-empty, a forward may only target one of these hosts, as written.
+  repeated string allowed_remote_hosts = 4;
+}
+
+// ---------------------------------------------------------------------------
+// Forwards
+// ---------------------------------------------------------------------------
+
+// ssh -L : listen on this machine, deliver to a host reachable from the SSH peer.
+message LocalForward {
+  string id = 1;             // stable, caller-chosen; used in events and lookups
+  Endpoint listen = 2;       // bound on the machine running this runtime
+  Endpoint target = 3;       // resolved by the SSH peer
+  bool exclusive = 4;        // fail instead of reusing an existing listener
+  uint32 max_connections = 5; // 0 = unlimited
+}
+
+// ssh -R : the SSH peer listens, connections are delivered to a host reachable
+// from this machine.
+message RemoteForward {
+  string id = 1;
+  Endpoint bind = 2;         // bound on the SSH peer; port 0 = peer assigns
+  Endpoint target = 3;       // resolved by the machine running this runtime
+  uint32 max_connections = 4; // 0 = unlimited
+}
+
+// ---------------------------------------------------------------------------
+// Transport
+// ---------------------------------------------------------------------------
+
+// How to reach the SSH listener. This model deliberately assumes an SSH
+// listener already exists at `endpoint` — it never provisions a relay. A
+// reachability provider such as zrok, ngrok or a VPS is an external concern
+// recorded only as documentation metadata.
+message SshTransport {
+  Endpoint endpoint = 1;
+  string username = 2;
+  CredentialRef private_key = 3;
+  CredentialRef passphrase = 4;
+  CredentialRef password = 5;
+
+  uint32 keepalive_interval_ms = 6;   // default 10000
+  uint32 keepalive_count_max = 7;     // default 3
+  uint32 ready_timeout_ms = 8;        // default 20000
+  repeated string host_key_fingerprints = 9; // sha256:... ; empty = accept any
+
+  enum Reachability {
+    REACHABILITY_UNSPECIFIED = 0;
+    REACHABILITY_DIRECT = 1;
+    REACHABILITY_ZROK = 2;
+    REACHABILITY_NGROK = 3;
+    REACHABILITY_CUSTOM = 4;
+  }
+  Reachability reachability = 10; // documentation only; no behavioral effect
+}
+
+message ReconnectPolicy {
+  bool enabled = 1;              // default true
+  uint32 max_attempts = 2;       // 0 = unlimited
+  uint32 initial_delay_ms = 3;   // default 1000
+  uint32 max_delay_ms = 4;       // default 30000
+  double backoff_multiplier = 5; // default 2.0
+  double jitter_ratio = 6;       // 0.0..1.0, default 0.2
+}
+
+// The complete, portable definition of one tunnel.
+message TunnelConfig {
+  string id = 1;
+  string label = 2;
+  SshTransport transport = 3;
+  PortPolicy port_policy = 4;
+  ReconnectPolicy reconnect = 5;
+  repeated LocalForward local_forwards = 6;
+  repeated RemoteForward remote_forwards = 7;
+  map<string, string> metadata = 8;
+}
+
+// ---------------------------------------------------------------------------
+// State
+// ---------------------------------------------------------------------------
+
+enum TunnelState {
+  TUNNEL_STATE_UNSPECIFIED = 0;
+  TUNNEL_STATE_IDLE = 1;
+  TUNNEL_STATE_CONNECTING = 2;
+  TUNNEL_STATE_READY = 3;
+  TUNNEL_STATE_RECONNECTING = 4;
+  TUNNEL_STATE_CLOSING = 5;
+  TUNNEL_STATE_CLOSED = 6;
+  TUNNEL_STATE_FAILED = 7;
+}
+
+enum ForwardState {
+  FORWARD_STATE_UNSPECIFIED = 0;
+  FORWARD_STATE_PENDING = 1;
+  FORWARD_STATE_OPENING = 2;
+  FORWARD_STATE_ACTIVE = 3;
+  FORWARD_STATE_DEGRADED = 4;  // registered, but transport is down
+  FORWARD_STATE_CLOSING = 5;
+  FORWARD_STATE_CLOSED = 6;
+  FORWARD_STATE_FAILED = 7;
+}
+
+// Lifecycle of a single proxied TCP connection carried by a forward.
+enum ConnectionState {
+  CONNECTION_STATE_UNSPECIFIED = 0;
+  CONNECTION_STATE_ACCEPTED = 1;   // inbound socket accepted, no channel yet
+  CONNECTION_STATE_OPENING = 2;    // SSH channel being opened
+  CONNECTION_STATE_PIPED = 3;      // bidirectional flow established
+  CONNECTION_STATE_HALF_CLOSED = 4;
+  CONNECTION_STATE_CLOSED = 5;
+  CONNECTION_STATE_FAILED = 6;
+}
+
+enum ForwardDirection {
+  FORWARD_DIRECTION_UNSPECIFIED = 0;
+  FORWARD_DIRECTION_LOCAL = 1;   // ssh -L
+  FORWARD_DIRECTION_REMOTE = 2;  // ssh -R
+}
+
+message ConnectionStatus {
+  string connection_id = 1;
+  string forward_id = 2;
+  ForwardDirection direction = 3;
+  ConnectionState state = 4;
+  Endpoint source = 5;
+  Endpoint destination = 6;
+  int64 opened_at_unix_ms = 7;
+  int64 closed_at_unix_ms = 8;
+  uint64 bytes_to_target = 9;
+  uint64 bytes_from_target = 10;
+  string error = 11;
+}
+
+message ForwardStatus {
+  string forward_id = 1;
+  ForwardDirection direction = 2;
+  ForwardState state = 3;
+  Endpoint listen = 4;        // for remote forwards, the peer-side bind
+  Endpoint target = 5;
+  uint32 assigned_port = 6;   // resolved port when requested port was 0
+  uint32 active_connections = 7;
+  uint64 total_connections = 8;
+  string error = 9;
+}
+
+message TunnelStatus {
+  string tunnel_id = 1;
+  TunnelState state = 2;
+  Endpoint endpoint = 3;
+  uint32 reconnect_attempt = 4;
+  int64 connected_at_unix_ms = 5;
+  repeated ForwardStatus forwards = 6;
+  string error = 7;
+}
+
+// ---------------------------------------------------------------------------
+// Events
+// ---------------------------------------------------------------------------
+
+message TunnelEvent {
+  int64 timestamp_unix_ms = 1;
+  string tunnel_id = 2;
+
+  oneof payload {
+    StateChanged state_changed = 10;
+    ForwardChanged forward_changed = 11;
+    ConnectionChanged connection_changed = 12;
+    ReconnectScheduled reconnect_scheduled = 13;
+    ErrorRaised error_raised = 14;
+  }
+
+  message StateChanged {
+    TunnelState previous = 1;
+    TunnelState current = 2;
+    string reason = 3;
+  }
+
+  message ForwardChanged {
+    ForwardStatus status = 1;
+    ForwardState previous = 2;
+  }
+
+  message ConnectionChanged {
+    ConnectionStatus status = 1;
+    ConnectionState previous = 2;
+  }
+
+  message ReconnectScheduled {
+    uint32 attempt = 1;
+    uint32 delay_ms = 2;
+    string cause = 3;
+  }
+
+  message ErrorRaised {
+    // Mirrors the runtime error taxonomy so non-TypeScript consumers can
+    // branch on a stable code rather than on a message string.
+    enum Code {
+      CODE_UNSPECIFIED = 0;
+      CODE_INVALID_FORWARD_SPEC = 1;
+      CODE_PORT_NOT_PERMITTED = 2;
+      CODE_HOST_NOT_PERMITTED = 3;
+      CODE_TRANSPORT_NOT_READY = 4;
+      CODE_AUTH_FAILED = 5;
+      CODE_LISTEN_FAILED = 6;
+      CODE_REMOTE_BIND_FAILED = 7;
+      CODE_CHANNEL_OPEN_FAILED = 8;
+      CODE_TARGET_UNREACHABLE = 9;
+      CODE_DUPLICATE_FORWARD_ID = 10;
+      CODE_UNKNOWN_FORWARD = 11;
+      CODE_CONNECTION_LIMIT = 12;
+      CODE_RECONNECT_EXHAUSTED = 13;
+      CODE_CREDENTIAL_UNRESOLVED = 14;
+    }
+    Code code = 1;
+    string message = 2;
+    string forward_id = 3;
+    string connection_id = 4;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Optional control plane
+// ---------------------------------------------------------------------------
+//
+// Implementing this service is NOT required to use the library in-process. It
+// exists so that a non-Node runtime (for example a Python agent-flow runtime)
+// can drive a Node tunnel manager over a loopback control API and resolve a
+// named forward to a concrete local endpoint.
+
+message OpenTunnelRequest { TunnelConfig config = 1; }
+message OpenTunnelResponse { TunnelStatus status = 1; }
+
+message CloseTunnelRequest { string tunnel_id = 1; }
+message CloseTunnelResponse { TunnelStatus status = 1; }
+
+message GetTunnelStatusRequest { string tunnel_id = 1; }
+message GetTunnelStatusResponse { TunnelStatus status = 1; }
+
+message OpenLocalForwardRequest {
+  string tunnel_id = 1;
+  LocalForward forward = 2;
+}
+message OpenRemoteForwardRequest {
+  string tunnel_id = 1;
+  RemoteForward forward = 2;
+}
+message OpenForwardResponse { ForwardStatus status = 1; }
+
+message CloseForwardRequest {
+  string tunnel_id = 1;
+  string forward_id = 2;
+}
+message CloseForwardResponse { ForwardStatus status = 1; }
+
+// Resolve a semantic forward id to the loopback endpoint a caller should use.
+message ResolveEndpointRequest {
+  string tunnel_id = 1;
+  string forward_id = 2;
+}
+message ResolveEndpointResponse {
+  Endpoint endpoint = 1;
+  ForwardState state = 2;
+}
+
+message WatchEventsRequest { string tunnel_id = 1; }
+
+service TunnelControl {
+  rpc OpenTunnel(OpenTunnelRequest) returns (OpenTunnelResponse);
+  rpc CloseTunnel(CloseTunnelRequest) returns (CloseTunnelResponse);
+  rpc GetTunnelStatus(GetTunnelStatusRequest) returns (GetTunnelStatusResponse);
+  rpc OpenLocalForward(OpenLocalForwardRequest) returns (OpenForwardResponse);
+  rpc OpenRemoteForward(OpenRemoteForwardRequest) returns (OpenForwardResponse);
+  rpc CloseForward(CloseForwardRequest) returns (CloseForwardResponse);
+  rpc ResolveEndpoint(ResolveEndpointRequest) returns (ResolveEndpointResponse);
+  rpc WatchEvents(WatchEventsRequest) returns (stream TunnelEvent);
+}
