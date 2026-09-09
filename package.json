@@ -1,6 +1,6 @@
 {
   "name": "ssh_tunnel_proxy",
-  "version": "3.0.0",
+  "version": "3.0.1",
   "description": "Programmatic local and reverse TCP port forwarding over SSH for Node.js, built for outbound-only and constrained-device deployments.",
   "main": "build/index.js",
   "types": "build/index.d.ts",
