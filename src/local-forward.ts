@@ -12,7 +12,7 @@ import { createServer, type Server, type Socket } from 'node:net';
 
 import type { TransportBridge } from './bridge';
 import { ProxiedConnection } from './connection';
-import { TunnelError, asTunnelError } from './errors';
+import { TunnelError, asTunnelError, classifyChannelOpenFailure } from './errors';
 import { describeLocalForward } from './forward-spec';
 import type { ForwardState, ForwardStatus, LocalForward } from './model';
 
@@ -252,9 +252,12 @@ export class LocalForwardHandle {
             return;
           }
           if (err) {
+            const code = classifyChannelOpenFailure(err);
             const wrapped = asTunnelError(
-              'CHANNEL_OPEN_FAILED',
-              `forwardOut to ${this.spec.target.host}:${this.spec.target.port} failed`,
+              code,
+              code === 'TARGET_UNREACHABLE'
+                ? `destination ${this.spec.target.host}:${this.spec.target.port} refused`
+                : `forwardOut to ${this.spec.target.host}:${this.spec.target.port} failed`,
               err,
               { forwardId: this.forwardId, connectionId: connection.connectionId },
             );

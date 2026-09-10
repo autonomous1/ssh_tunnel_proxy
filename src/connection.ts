@@ -115,6 +115,9 @@ export class ProxiedConnection {
       return;
     }
     this.inbound = inbound;
+    inbound.on('error', () => {
+      /* dest-refuse / RST: observability is tunnel 'error' + connection state */
+    });
   }
 
   /**
@@ -214,6 +217,7 @@ export class ProxiedConnection {
     if (!stream) return;
     try {
       stream.removeAllListeners('data');
+      stream.removeAllListeners('error');
       if (!stream.destroyed) stream.destroy();
     } catch {
       // best effort

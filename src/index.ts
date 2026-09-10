@@ -18,7 +18,13 @@ export { ProxiedConnection } from './connection';
 export type { ProxiedConnectionOptions } from './connection';
 export type { TransportBridge } from './bridge';
 
-export { TUNNEL_ERROR_CODES, TunnelError, isTunnelError, asTunnelError } from './errors';
+export {
+  TUNNEL_ERROR_CODES,
+  TunnelError,
+  isTunnelError,
+  asTunnelError,
+  classifyChannelOpenFailure,
+} from './errors';
 export type { TunnelErrorCode, TunnelErrorDetails } from './errors';
 
 export {

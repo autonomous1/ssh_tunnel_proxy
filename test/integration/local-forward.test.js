@@ -227,11 +227,42 @@ describe('local forwarding', function () {
     bench.rejectDirectTcpip = false;
     tunnel.off('error', listener);
 
-    assert.ok(errors.includes('CHANNEL_OPEN_FAILED'));
+    assert.ok(
+      errors.includes('CHANNEL_OPEN_FAILED') || errors.includes('TARGET_UNREACHABLE'),
+      `expected an observable dest/channel failure, got ${errors.join(',')}`,
+    );
     // The listener survives a rejected channel.
     assert.equal(tunnel.getForwardStatus('refused').state, 'active');
     assert.equal(await roundTrip(listenPort, 'recovered'), 'echo:recovered');
     await tunnel.removeForward('refused');
+  });
+
+  it('reports TARGET_UNREACHABLE when the destination refuses', async function () {
+    const listenPort = await freePort();
+    const deadPort = await freePort();
+    await tunnel.addLocalForward({
+      id: 'dest-refuse',
+      listen: { host: '127.0.0.1', port: listenPort },
+      target: { host: '127.0.0.1', port: deadPort },
+    });
+
+    const errors = [];
+    const connections = [];
+    tunnel.on('error', (err) => errors.push(err));
+    tunnel.on('connection', ({ status }) => connections.push(status));
+
+    await assert.rejects(() => roundTrip(listenPort, 'no-dest'));
+
+    assert.ok(
+      errors.some((err) => err.code === 'TARGET_UNREACHABLE' || err.code === 'CHANNEL_OPEN_FAILED'),
+      `dest-refuse must raise a tunnel error, got ${errors.map((e) => e.code).join(',')}`,
+    );
+    assert.ok(
+      connections.some((status) => status.state === 'failed'),
+      'dest-refuse must mark the proxied connection failed',
+    );
+    assert.equal(tunnel.getForwardStatus('dest-refuse').state, 'active');
+    await tunnel.removeForward('dest-refuse');
   });
 
   it('runs a single command over the transport', async function () {

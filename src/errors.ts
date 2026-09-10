@@ -74,3 +74,62 @@ export function asTunnelError(
   const suffix = cause instanceof Error ? `: ${cause.message}` : cause ? `: ${String(cause)}` : '';
   return new TunnelError(code, `${message}${suffix}`, { ...details, cause });
 }
+
+/**
+ * Classify a failed `forwardOut` / channel open.
+ *
+ * Dest-refuse (nothing listening on the far target, or a TCP connect
+ * failure) is `TARGET_UNREACHABLE`. The SSH peer refusing the channel
+ * type or the session being down is `CHANNEL_OPEN_FAILED` /
+ * `TRANSPORT_NOT_READY`. Callers and simulators can branch on the code
+ * without parsing ssh2 message text.
+ */
+export function classifyChannelOpenFailure(cause: unknown): TunnelErrorCode {
+  if (cause && typeof cause === 'object') {
+    const record = cause as {
+      code?: string;
+      level?: string;
+      reason?: string | number;
+      message?: string;
+    };
+    const nodeCode = String(record.code ?? '').toUpperCase();
+    if (
+      nodeCode === 'ECONNREFUSED' ||
+      nodeCode === 'ENOTFOUND' ||
+      nodeCode === 'EHOSTUNREACH' ||
+      nodeCode === 'ENETUNREACH' ||
+      nodeCode === 'ETIMEDOUT' ||
+      nodeCode === 'ECONNRESET'
+    ) {
+      return 'TARGET_UNREACHABLE';
+    }
+    // ssh2 ChannelOpenError.reason is the SSH2 numeric or a string.
+    const reason = String(record.reason ?? '').toLowerCase();
+    if (
+      reason.includes('connect') ||
+      reason === '2' ||
+      reason === 'ssh_open_connect_failed'
+    ) {
+      return 'TARGET_UNREACHABLE';
+    }
+    if (record.level === 'client-timeout') return 'CHANNEL_OPEN_FAILED';
+    const message = String(record.message ?? '').toLowerCase();
+    if (
+      message.includes('connect failed') ||
+      message.includes('econnrefused') ||
+      message.includes('connection refused') ||
+      message.includes('no route') ||
+      message.includes('host unreachable')
+    ) {
+      return 'TARGET_UNREACHABLE';
+    }
+    if (
+      message.includes('not connected') ||
+      message.includes('no response') ||
+      nodeCode === 'EPIPE'
+    ) {
+      return 'TRANSPORT_NOT_READY';
+    }
+  }
+  return 'CHANNEL_OPEN_FAILED';
+}
