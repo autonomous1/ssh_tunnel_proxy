@@ -245,7 +245,7 @@ export class LocalForwardHandle {
         sourcePort,
         this.spec.target.host,
         this.spec.target.port,
-        (err, stream) => {
+        (err: any, stream: any) => {
           clearTimeout(openTimer);
           if (connection.isClosed()) {
             if (stream && !stream.destroyed) stream.destroy();

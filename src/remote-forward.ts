@@ -93,7 +93,7 @@ export class RemoteForwardHandle {
 
     try {
       this.assignedPort = await new Promise<number>((resolve, reject) => {
-        client.forwardIn(this.spec.bind.host, this.spec.bind.port, (err, port) => {
+        client.forwardIn(this.spec.bind.host, this.spec.bind.port, (err: any, port: any) => {
           if (err) {
             reject(
               asTunnelError(

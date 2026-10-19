@@ -530,7 +530,7 @@ export class SSHTunnel extends EventEmitter {
   ): Promise<{ code: number | null; stdout: string; stderr: string }> {
     const client = this.bridge.requireClient('exec');
     return new Promise((resolve, reject) => {
-      client.exec(command, (err, stream: ClientChannel) => {
+      client.exec(command, (err: any, stream: ClientChannel) => {
         if (err) {
           reject(asTunnelError('CHANNEL_OPEN_FAILED', `exec failed: ${command}`, err));
           return;
@@ -614,7 +614,7 @@ export class SSHTunnel extends EventEmitter {
   }
 
   private attachClientHandlers(client: Client): void {
-    client.on('tcp connection', (details, accept, reject) => {
+    client.on('tcp connection', (details: any, accept: any, reject: any) => {
       const destIP = String(details.destIP ?? '');
       const destPort = Number(details.destPort ?? 0);
       const handle = [...this.remoteForwards.values()].find((candidate) =>
